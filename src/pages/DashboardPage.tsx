@@ -64,10 +64,10 @@ const initDisciplines = (): DisciplinesState => {
 }
 
 const DEBTS_DATA = [
-  { name: "Гандалоев М.Р.", subject: "БЖД", type: "Контрольная", deadline: "15.01.2025", status: "Не сдано" },
-  { name: "Костоев А.Р.", subject: "КП", type: "Проект", deadline: "20.01.2025", status: "Не сдано" },
-  { name: "Магомедов И.А.", subject: "ИГПР", type: "Реферат", deadline: "10.01.2025", status: "Просрочено" },
-  { name: "Силантьев А.Д.", subject: "КРПР", type: "Реферат", deadline: "25.01.2025", status: "Сдано" },
+  { name: "Гандалоев М.Р.", subject: "БЖД", type: "Контрольная", deadline: "18.02.2026", status: "Не сдано" },
+  { name: "Костоев А.Р.", subject: "КП", type: "Проект", deadline: "04.03.2026", status: "Не сдано" },
+  { name: "Магомедов И.А.", subject: "ИГПР", type: "Реферат", deadline: "21.03.2026", status: "Просрочено" },
+  { name: "Силантьев А.Д.", subject: "КРПР", type: "Реферат", deadline: "07.04.2026", status: "Сдано" },
 ]
 
 const DOCUMENTS = [
