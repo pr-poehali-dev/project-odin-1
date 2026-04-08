@@ -155,4 +155,3 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   )
 }
 
-export { LoginPage }
