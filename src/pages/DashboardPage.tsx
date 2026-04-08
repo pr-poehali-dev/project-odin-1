@@ -67,7 +67,7 @@ const DEBTS_DATA = [
   { name: "Гандалоев М.Р.", subject: "БЖД", type: "Контрольная", deadline: "15.01.2025", status: "Не сдано" },
   { name: "Костоев А.Р.", subject: "КП", type: "Проект", deadline: "20.01.2025", status: "Не сдано" },
   { name: "Магомедов И.А.", subject: "ИГПР", type: "Реферат", deadline: "10.01.2025", status: "Просрочено" },
-  { name: "Муталипов М.Д.", subject: "БЖД", type: "Контрольная", deadline: "25.01.2025", status: "Не сдано" },
+  { name: "Силантьев А.Д.", subject: "КРПР", type: "Реферат", deadline: "25.01.2025", status: "Сдано" },
 ]
 
 const DOCUMENTS = [
@@ -359,15 +359,15 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     {DEBTS_DATA.map((row, i) => (
                       <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: row.status === "Просрочено" ? "rgba(220,38,38,0.1)" : "rgba(128,0,32,0.08)" }}>
-                          <Icon name="BookX" size={15} className={row.status === "Просрочено" ? "text-red-500" : "text-[#800020]"} />
+                          style={{ background: row.status === "Просрочено" ? "rgba(220,38,38,0.1)" : row.status === "Сдано" ? "rgba(22,163,74,0.1)" : "rgba(128,0,32,0.08)" }}>
+                          <Icon name={row.status === "Сдано" ? "BookCheck" : "BookX"} size={15} className={row.status === "Просрочено" ? "text-red-500" : row.status === "Сдано" ? "text-green-600" : "text-[#800020]"} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-semibold text-gray-800">{row.name}</p>
                           <p className="text-[12px] text-gray-500">{row.subject} — {row.type}</p>
                           <p className="text-[11px] text-gray-400">Срок: {row.deadline}</p>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 ${row.status === "Просрочено" ? "bg-red-100 text-red-600" : "bg-amber-50 text-amber-600"}`}>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 ${row.status === "Просрочено" ? "bg-red-100 text-red-600" : row.status === "Сдано" ? "bg-green-100 text-green-600" : "bg-amber-50 text-amber-600"}`}>
                           {row.status}
                         </span>
                       </div>
