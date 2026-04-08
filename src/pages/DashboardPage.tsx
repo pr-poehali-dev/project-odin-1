@@ -428,7 +428,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                   </div>
                   <p className="text-sm text-gray-500 mb-5">Поделитесь идеями по улучшению работы корпуса старост. Анкета анонимна.</p>
                   <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(128,0,32,0.1)" }}>
-                    <iframe src="https://forms.yandex.ru/u/your-form-id/" width="100%" height="400" className="block" title="Анкета предложений" />
+                    <iframe src="https://forms.yandex.ru/u/69d6a3b99029021e51760e14" width="100%" height="400" className="block" title="Анкета предложений" />
                   </div>
                   <p className="text-[11px] text-gray-400 mt-3 text-center">Вставьте ссылку на Яндекс Форму в настройках</p>
                 </div>
