@@ -77,11 +77,12 @@ const DOCUMENTS = [
 ]
 
 const CONTACTS = [
-  { role: "Декан", name: "Смирнова Елена Ивановна", icon: "GraduationCap" },
-  { role: "Методист", name: "Козырева Наталья Павловна", icon: "ClipboardList" },
-  { role: "Зам. по воспитательной работе", name: "Морозов Андрей Витальевич", icon: "Users" },
-  { role: "Преподаватель математики", name: "Лебедев Игорь Сергеевич", icon: "BookOpen" },
-  { role: "Преподаватель физики", name: "Орлова Светлана Николаевна", icon: "Atom" },
+  { role: "Декан", name: "Гамбарова Анастасия Алексеевна", icon: "GraduationCap" },
+  { role: "Методист", name: "Леднева Екатерина Александровна", icon: "ClipboardList" },
+  { role: "Замдиректора по воспитательной работе", name: "Беляев Александр Сергеевич", icon: "Users" },
+  { role: "Преподаватель БЖД", name: "Палади Александр Александрович", icon: "ShieldCheck" },
+  { role: "Преподаватель конституционного права", name: "Дубровина Юлия Яковлевна", icon: "Scale" },
+  { role: "Преподаватель истории государства и права", name: "Воронин Александр Викторович", icon: "BookOpen" },
 ]
 
 const folders = [
@@ -513,11 +514,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     <h3 className="text-xl font-bold text-gray-800">{user.name}</h3>
                     <p className="text-sm text-gray-500 mt-1">Группа {user.group}</p>
                     <span className="mt-3 text-[11px] font-semibold px-3 py-1.5 rounded-full"
-                      style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}>Голова группы</span>
+                      style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}>Староста</span>
                     <div className="w-full mt-6 p-4 rounded-xl space-y-2" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
                       <div className="flex justify-between text-[13px]">
                         <span className="text-gray-500">Роль</span>
-                        <span className="font-semibold text-gray-800">Голова группы</span>
+                        <span className="font-semibold text-gray-800">Староста</span>
                       </div>
                       <div className="flex justify-between text-[13px]">
                         <span className="text-gray-500">Группа</span>
