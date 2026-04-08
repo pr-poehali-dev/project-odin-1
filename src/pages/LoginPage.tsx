@@ -6,6 +6,7 @@ const USERS: { firstName: string; lastName: string; code: string; group: string 
   { firstName: "Иван", lastName: "Петров", code: "SR-001", group: "ИСП-21" },
   { firstName: "Мария", lastName: "Сидорова", code: "SR-002", group: "ИСП-22" },
   { firstName: "Алексей", lastName: "Козлов", code: "SR-003", group: "ИСП-23" },
+  { firstName: "Айша", lastName: "Сафронова", code: "12345", group: "ИСП-21" },
 ]
 
 interface LoginPageProps {
@@ -154,4 +155,3 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     </main>
   )
 }
-
