@@ -1,7 +1,10 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { User } from "@/App"
 import Icon from "@/components/ui/icon"
+import * as XLSX from "xlsx"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 
 interface DashboardPageProps {
   user: User
@@ -10,8 +13,11 @@ interface DashboardPageProps {
 
 type FolderKey = "attendance" | "debts" | "documents" | "survey" | null
 
-const DAYS = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
-const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+const DAYS = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
+const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
+
+// Семестр: 09.02.2026 — 30.05.2026 (начало — понедельник чётной недели)
+const SEMESTER_START = new Date(2026, 1, 9) // 9 февраля 2026
 
 const STUDENTS = [
   "Бадминова Виктория Мингияновна",
@@ -41,16 +47,20 @@ const STUDENTS = [
   "Ширшова Кира Павловна",
 ]
 
-type AttendanceVal = true | false | "excused" | null
+// null = присутствует (по умолчанию), false = неуваж, "excused" = уваж
+type AttendanceVal = false | "excused" | null
 type AttendanceState = Record<string, Record<number, Record<number, AttendanceVal>>>
 type DisciplinesState = Record<number, [string, string, string]>
+// Сохранённые записи: dayIdx -> { attendance snapshot, disciplines snapshot }
+type SavedDayRecord = { attendance: Record<string, Record<number, AttendanceVal>>; disciplines: [string, string, string] }
+type SavedRecords = Record<number, SavedDayRecord>
 
 const initAttendance = (): AttendanceState => {
   const state: AttendanceState = {}
   STUDENTS.forEach((s) => {
     state[s] = {}
     DAYS.forEach((_, di) => {
-      state[s][di] = { 0: null, 1: null, 2: null } as Record<number, AttendanceVal>
+      state[s][di] = { 0: null, 1: null, 2: null }
     })
   })
   return state
@@ -112,8 +122,14 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const [messageText, setMessageText] = useState("")
   const [sentMessages, setSentMessages] = useState<{ to: string; text: string }[]>([])
   const [selectedDay, setSelectedDay] = useState(0)
+  const [selectedWeek, setSelectedWeek] = useState<number>(() => {
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - SEMESTER_START.getTime()) / (7 * 24 * 60 * 60 * 1000))
+    return Math.max(0, diff)
+  })
   const [attendance, setAttendance] = useState<AttendanceState>(initAttendance)
   const [disciplines, setDisciplines] = useState<DisciplinesState>(initDisciplines)
+  const [savedRecords, setSavedRecords] = useState<SavedRecords>({})
   const [documents, setDocuments] = useState<DocEntry[]>(INIT_DOCUMENTS)
   const [debts, setDebts] = useState<DebtEntry[]>(INIT_DEBTS)
   const [showAddDoc, setShowAddDoc] = useState(false)
@@ -132,7 +148,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const toggleAttendance = (student: string, lessonIdx: number) => {
     setAttendance((prev) => {
       const cur = prev[student][selectedDay][lessonIdx]
-      const next: AttendanceVal = cur === null ? true : cur === true ? false : cur === false ? "excused" : null
+      // null (присутствует) → false (неуваж) → "excused" (уваж) → null
+      const next: AttendanceVal = cur === null ? false : cur === false ? "excused" : null
       return {
         ...prev,
         [student]: {
@@ -143,6 +160,57 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     })
   }
 
+  const saveDay = () => {
+    const snap: Record<string, Record<number, AttendanceVal>> = {}
+    STUDENTS.forEach(s => {
+      snap[s] = { ...attendance[s][selectedDay] }
+    })
+    setSavedRecords(prev => ({
+      ...prev,
+      [`${selectedWeek}-${selectedDay}`]: { attendance: snap, disciplines: disciplines[selectedDay] },
+    }))
+  }
+
+  // Подсчёт пропусков из сохранённых записей
+  const countAbsencesSaved = (student: string) => {
+    let unexcused = 0, excused = 0
+    Object.values(savedRecords).forEach(rec => {
+      const stuRec = rec.attendance[student]
+      if (!stuRec) return
+      rec.disciplines.forEach((disc, li) => {
+        if (disc.trim()) {
+          if (stuRec[li] === false) unexcused++
+          if (stuRec[li] === "excused") excused++
+        }
+      })
+    })
+    return { unexcused, excused }
+  }
+
+  // Подсчёт пропусков за текущий день (не сохранённый)
+  const countDayAbsences = () => {
+    let unexcused = 0, excused = 0
+    STUDENTS.forEach(student => {
+      [0, 1, 2].forEach(li => {
+        const disc = disciplines[selectedDay][li]
+        if (disc.trim()) {
+          const v = attendance[student][selectedDay][li]
+          if (v === false) unexcused++
+          if (v === "excused") excused++
+        }
+      })
+    })
+    return { unexcused, excused }
+  }
+
+  const weekDate = useMemo(() => {
+    const d = new Date(SEMESTER_START)
+    d.setDate(d.getDate() + selectedWeek * 7 + selectedDay)
+    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" })
+  }, [selectedWeek, selectedDay])
+
+  const isEvenWeek = (selectedWeek + 1) % 2 === 0
+
   const setDiscipline = (dayIdx: number, lessonIdx: number, value: string) => {
     setDisciplines((prev) => {
       const arr = [...prev[dayIdx]] as [string, string, string]
@@ -152,39 +220,24 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   }
 
   const getAttendanceSymbol = (val: AttendanceVal) => {
-    if (val === true) return { sym: "✓", cls: "text-green-600 bg-green-50" }
     if (val === false) return { sym: "Н", cls: "text-red-500 bg-red-50" }
     if (val === "excused") return { sym: "У", cls: "text-blue-500 bg-blue-50" }
-    return { sym: "·", cls: "text-gray-300 bg-gray-50" }
+    return { sym: "·", cls: "text-gray-200 bg-gray-50" }
   }
 
   const countPresent = (student: string) => {
-    let present = 0, total = 0
+    let absent = 0, total = 0
     DAYS.forEach((_, di) => {
       [0, 1, 2].forEach((li) => {
         const disc = disciplines[di][li]
         if (disc.trim()) {
           total++
-          if (attendance[student][di][li] === true) present++
+          if (attendance[student][di][li] !== null) absent++
         }
       })
     })
+    const present = total - absent
     return total > 0 ? `${present}/${total}` : "—"
-  }
-
-  const countAbsences = (student: string) => {
-    let unexcused = 0, excused = 0
-    DAYS.forEach((_, di) => {
-      [0, 1, 2].forEach((li) => {
-        const disc = disciplines[di][li]
-        if (disc.trim()) {
-          const v = attendance[student][di][li]
-          if (v === false) unexcused++
-          if (v === "excused") excused++
-        }
-      })
-    })
-    return { unexcused, excused }
   }
 
   const getAbsenceColor = (unexcused: number) => {
@@ -192,6 +245,38 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     if (unexcused >= 36) return "text-red-600 font-bold"
     if (unexcused >= 20) return "text-orange-500 font-bold"
     return "text-green-600 font-semibold"
+  }
+
+  const exportExcel = () => {
+    const rows = STUDENTS.map((s, i) => {
+      const { unexcused, excused } = countAbsencesSaved(s)
+      return { "№": i + 1, "Студент": s, "Неуваж. пропуски": unexcused, "Уваж. пропуски": excused, "Итого пропусков": unexcused + excused }
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Пропуски")
+    XLSX.writeFile(wb, "пропуски_семестр.xlsx")
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF()
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(14)
+    doc.text("Propuski za semestr", 14, 16)
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.text(`Gruppa: ${user.group}`, 14, 24)
+    autoTable(doc, {
+      startY: 30,
+      head: [["#", "Student", "Neuvazh.", "Uvazh.", "Vsego"]],
+      body: STUDENTS.map((s, i) => {
+        const { unexcused, excused } = countAbsencesSaved(s)
+        return [i + 1, s, unexcused, excused, unexcused + excused]
+      }),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [128, 0, 32] },
+    })
+    doc.save("propuski_semestr.pdf")
   }
 
   return (
@@ -288,10 +373,15 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
               {/* ===== ATTENDANCE ===== */}
               {openFolder === "attendance" && (
                 <div className="p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Icon name="CalendarCheck" size={20} className="text-[#800020]" />
-                      <h2 className="text-base font-bold text-gray-800">Посещаемость — {user.group}</h2>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-base font-bold text-gray-800">Посещаемость — {user.group}</h2>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -306,8 +396,22 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     </div>
                   </div>
 
+                  {/* Week selector + date badge */}
+                  <div className="flex items-center gap-3 mb-4 p-3 rounded-xl" style={{ background: "rgba(128,0,32,0.04)", border: "1px solid rgba(128,0,32,0.1)" }}>
+                    <button onClick={() => setSelectedWeek(w => Math.max(0, w - 1))} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors">
+                      <Icon name="ChevronLeft" size={16} className="text-[#800020]" />
+                    </button>
+                    <div className="flex-1 text-center">
+                      <div className="text-[11px] font-semibold text-[#800020]">{isEvenWeek ? "Чётная неделя" : "Нечётная неделя"} · Неделя {selectedWeek + 1}</div>
+                      <div className="text-[13px] font-bold text-gray-800">{weekDate}</div>
+                    </div>
+                    <button onClick={() => setSelectedWeek(w => w + 1)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors">
+                      <Icon name="ChevronRight" size={16} className="text-[#800020]" />
+                    </button>
+                  </div>
+
                   {/* Day selector */}
-                  <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
+                  <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
                     {DAY_SHORT.map((d, i) => (
                       <button key={i} onClick={() => setSelectedDay(i)}
                         className="flex-shrink-0 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all"
@@ -327,7 +431,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                         <input
                           value={disciplines[selectedDay][li]}
                           onChange={(e) => setDiscipline(selectedDay, li, e.target.value)}
-                          placeholder="Название дисциплины"
+                          placeholder="Дисциплина"
                           className="w-full rounded-xl px-3 py-2 text-[12px] text-gray-800 outline-none"
                           style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(128,0,32,0.15)" }}
                         />
@@ -335,29 +439,41 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     ))}
                   </div>
 
+                  {/* Day summary */}
+                  {(() => { const { unexcused, excused } = countDayAbsences(); return (unexcused + excused) > 0 ? (
+                    <div className="flex gap-3 mb-3">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-red-50 text-red-500">
+                        <Icon name="UserX" size={12} /> Неуваж.: {unexcused}
+                      </div>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-blue-50 text-blue-500">
+                        <Icon name="UserCheck" size={12} /> Уваж.: {excused}
+                      </div>
+                    </div>
+                  ) : null })()}
+
                   {/* Table */}
                   <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid rgba(128,0,32,0.08)" }}>
-                    <table className="w-full text-sm min-w-[580px]">
+                    <table className="w-full text-sm min-w-[500px]">
                       <thead>
                         <tr style={{ background: "rgba(128,0,32,0.05)" }}>
                           <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-600 w-8">#</th>
                           <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-600">Студент</th>
                           {[0, 1, 2].map((li) => (
-                            <th key={li} className="text-center px-3 py-2.5 text-[11px] font-semibold text-gray-600 min-w-[90px]">
+                            <th key={li} className="text-center px-2 py-2.5 text-[11px] font-semibold text-gray-600 min-w-[70px]">
                               <div>{li + 1}-я пара</div>
                               {disciplines[selectedDay][li] && (
-                                <div className="text-[10px] font-normal text-[#800020] truncate max-w-[90px]">{disciplines[selectedDay][li]}</div>
+                                <div className="text-[9px] font-normal text-[#800020] truncate max-w-[70px]">{disciplines[selectedDay][li]}</div>
                               )}
                             </th>
                           ))}
-                          <th className="text-center px-2 py-2.5 text-[11px] font-semibold text-[#800020]">Итого</th>
                           <th className="text-center px-2 py-2.5 text-[11px] font-semibold text-red-500">Н</th>
                           <th className="text-center px-2 py-2.5 text-[11px] font-semibold text-blue-500">У</th>
                         </tr>
                       </thead>
                       <tbody>
                         {STUDENTS.map((student, si) => {
-                          const { unexcused, excused } = countAbsences(student)
+                          const dayUnexcused = [0,1,2].filter(li => disciplines[selectedDay][li].trim() && attendance[student][selectedDay][li] === false).length
+                          const dayExcused = [0,1,2].filter(li => disciplines[selectedDay][li].trim() && attendance[student][selectedDay][li] === "excused").length
                           return (
                             <tr key={student} className="border-t border-gray-100 hover:bg-red-50/30 transition-colors">
                               <td className="px-3 py-2 text-[11px] text-gray-400">{si + 1}</td>
@@ -371,23 +487,20 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                                 const val = attendance[student][selectedDay][li]
                                 const { sym, cls } = getAttendanceSymbol(val)
                                 return (
-                                  <td key={li} className="text-center px-3 py-2">
+                                  <td key={li} className="text-center px-2 py-2">
                                     <button onClick={() => toggleAttendance(student, li)}
                                       className={`w-8 h-8 rounded-lg text-[13px] font-bold transition-all ${cls}`}
-                                      title="✓ присутствует → Н неуваж. → У уваж. → · не задано">
+                                      title="· присутствует → Н неуваж. → У уваж.">
                                       {sym}
                                     </button>
                                   </td>
                                 )
                               })}
-                              <td className="text-center px-2 py-2 text-[12px] font-semibold text-[#800020]">
-                                {countPresent(student)}
-                              </td>
                               <td className="text-center px-2 py-2 text-[12px] text-red-500 font-semibold">
-                                {unexcused > 0 ? unexcused : "—"}
+                                {dayUnexcused > 0 ? dayUnexcused : "—"}
                               </td>
                               <td className="text-center px-2 py-2 text-[12px] text-blue-500 font-semibold">
-                                {excused > 0 ? excused : "—"}
+                                {dayExcused > 0 ? dayExcused : "—"}
                               </td>
                             </tr>
                           )
@@ -395,7 +508,19 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-3">Нажмите на ячейку: ✓ присутствует · Н неуважительная · У уважительная · · не задано</p>
+
+                  {/* Save button */}
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-[10px] text-gray-400">· присутствует · Н неуваж. · У уваж.</p>
+                    <button
+                      onClick={saveDay}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold text-white transition-all"
+                      style={{ background: "linear-gradient(135deg, #800020, #c0392b)", boxShadow: "0 2px 10px rgba(128,0,32,0.3)" }}
+                    >
+                      <Icon name="Save" size={14} />
+                      Сохранить
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -723,22 +848,35 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
               style={{ background: "rgba(255,255,255,0.96)", boxShadow: "0 8px 40px rgba(128,0,32,0.18)" }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Icon name="BarChart2" size={20} className="text-[#800020]" />
                   <h2 className="text-base font-bold text-gray-800">Пропуски за семестр</h2>
                 </div>
                 <button onClick={() => setShowSemesterStats(false)}><Icon name="X" size={20} className="text-gray-400" /></button>
               </div>
-              <div className="flex gap-3 mb-4 text-[11px] font-semibold">
-                <span className="flex items-center gap-1 text-red-500"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Неуваж.</span>
-                <span className="flex items-center gap-1 text-blue-500"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Уваж.</span>
-                <span className="flex items-center gap-1 text-orange-500">от 20 — оранжевый</span>
-                <span className="flex items-center gap-1 text-red-600">от 36 — красный</span>
+              {/* Export buttons */}
+              <div className="flex gap-2 mb-4">
+                <button onClick={exportExcel}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-colors"
+                  style={{ background: "#1a7a4a" }}>
+                  <Icon name="FileSpreadsheet" size={14} /> Excel
+                </button>
+                <button onClick={exportPDF}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-colors"
+                  style={{ background: "#800020" }}>
+                  <Icon name="FileText" size={14} /> PDF
+                </button>
+              </div>
+              <div className="flex gap-3 mb-3 text-[11px] font-semibold flex-wrap">
+                <span className="flex items-center gap-1 text-green-600"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> 1–19 неуваж.</span>
+                <span className="flex items-center gap-1 text-orange-500"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> 20–35</span>
+                <span className="flex items-center gap-1 text-red-600"><span className="w-2 h-2 rounded-full bg-red-600 inline-block" /> 36+</span>
+                <span className="flex items-center gap-1 text-blue-500"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Уваж.</span>
               </div>
               <div className="space-y-2">
                 {STUDENTS.map((student, si) => {
-                  const { unexcused, excused } = countAbsences(student)
+                  const { unexcused, excused } = countAbsencesSaved(student)
                   const numColor = getAbsenceColor(unexcused)
                   return (
                     <div key={student} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
@@ -747,11 +885,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       <span className="flex-1 text-[12px] font-medium text-gray-800 truncate">{student}</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="text-center">
-                          <div className={`text-[14px] ${numColor}`}>{unexcused}</div>
+                          <div className={`text-[14px] ${numColor}`}>{unexcused || 0}</div>
                           <div className="text-[9px] text-gray-400">неуваж</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-[14px] text-blue-500 font-semibold">{excused}</div>
+                          <div className="text-[14px] text-blue-500 font-semibold">{excused || 0}</div>
                           <div className="text-[9px] text-gray-400">уваж</div>
                         </div>
                       </div>
