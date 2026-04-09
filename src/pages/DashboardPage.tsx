@@ -84,8 +84,6 @@ type DebtEntry = { name: string; subject: string; type: string; deadline: string
 
 const INIT_DOCUMENTS = [
   { name: "Бадминова В.М.", date: "10.01.2025", reason: "Болезнь", status: "Принята", hasPhoto: true },
-  { name: "Костоев А.Р.", date: "05.12.2024", reason: "Семейные обстоятельства", status: "На рассмотрении", hasPhoto: true },
-  { name: "Магомедов И.А.", date: "15.11.2024", reason: "Медицинские процедуры", status: "Принята", hasPhoto: false },
 ]
 
 type DocEntry = { name: string; date: string; reason: string; status: string; hasPhoto: boolean; fileUrl?: string; fileName?: string }
