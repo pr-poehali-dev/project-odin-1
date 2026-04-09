@@ -76,8 +76,7 @@ const INIT_DOCUMENTS = [
   { name: "Магомедов И.А.", date: "15.11.2024", reason: "Медицинские процедуры", status: "Принята", hasPhoto: false },
 ]
 
-type DocEntry = { name: string; date: string; reason: string; status: string; hasPhoto: boolean }
-type PassEntry = { name: string; date: string; status: string }
+type DocEntry = { name: string; date: string; reason: string; status: string; hasPhoto: boolean; fileUrl?: string; fileName?: string }
 
 const CONTACTS = [
   { role: "Декан", name: "Гамбарова Анастасия Алексеевна", icon: "GraduationCap" },
@@ -114,11 +113,9 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const [attendance, setAttendance] = useState<AttendanceState>(initAttendance)
   const [disciplines, setDisciplines] = useState<DisciplinesState>(initDisciplines)
   const [documents, setDocuments] = useState<DocEntry[]>(INIT_DOCUMENTS)
-  const [passes, setPasses] = useState<PassEntry[]>([])
   const [showAddDoc, setShowAddDoc] = useState(false)
-  const [showAddPass, setShowAddPass] = useState(false)
   const [newDoc, setNewDoc] = useState<DocEntry>({ name: "", date: "", reason: "", status: "На рассмотрении", hasPhoto: false })
-  const [newPass, setNewPass] = useState<PassEntry>({ name: "", date: "", status: "Открыт" })
+  const [attachedFile, setAttachedFile] = useState<{ url: string; name: string } | null>(null)
 
   const handleSendMessage = () => {
     if (messageContact && messageText.trim()) {
@@ -396,23 +393,15 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     <button onClick={() => setOpenFolder(null)}><Icon name="X" size={20} className="text-gray-400" /></button>
                   </div>
 
-                  {/* Кнопки добавления */}
-                  <div className="flex gap-2 mb-4">
+                  {/* Кнопка добавления */}
+                  <div className="mb-4">
                     <button
-                      onClick={() => { setShowAddDoc(true); setShowAddPass(false) }}
+                      onClick={() => setShowAddDoc(true)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-colors"
                       style={{ background: "#800020" }}
                     >
                       <Icon name="FilePlus" size={14} />
                       Добавить объяснительную
-                    </button>
-                    <button
-                      onClick={() => { setShowAddPass(true); setShowAddDoc(false) }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-colors"
-                      style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}
-                    >
-                      <Icon name="Ticket" size={14} />
-                      Создать пропуск
                     </button>
                   </div>
 
@@ -451,66 +440,49 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                         <option>Принята</option>
                         <option>Отклонена</option>
                       </select>
+                      {/* Прикрепить файл */}
+                      <label className="flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition-colors hover:bg-red-50"
+                        style={{ background: attachedFile ? "rgba(22,163,74,0.06)" : "rgba(128,0,32,0.05)", border: `1px dashed ${attachedFile ? "rgba(22,163,74,0.4)" : "rgba(128,0,32,0.2)"}` }}>
+                        <Icon name={attachedFile ? "FileCheck" : "Paperclip"} size={15} className={attachedFile ? "text-green-600" : "text-[#800020]"} />
+                        <span className={`text-[12px] font-medium ${attachedFile ? "text-green-600" : "text-[#800020]"}`}>
+                          {attachedFile ? attachedFile.name : "Прикрепить файл или фото"}
+                        </span>
+                        {attachedFile && (
+                          <button type="button" onClick={e => { e.preventDefault(); setAttachedFile(null) }} className="ml-auto">
+                            <Icon name="X" size={12} className="text-gray-400" />
+                          </button>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,.pdf,.doc,.docx"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const url = URL.createObjectURL(file)
+                            setAttachedFile({ url, name: file.name })
+                          }}
+                        />
+                      </label>
                       <div className="flex gap-2">
                         <button
                           onClick={() => {
                             if (!newDoc.name || !newDoc.date) return
-                            setDocuments(prev => [...prev, newDoc])
+                            setDocuments(prev => [...prev, {
+                              ...newDoc,
+                              hasPhoto: !!attachedFile,
+                              fileUrl: attachedFile?.url,
+                              fileName: attachedFile?.name,
+                            }])
                             setNewDoc({ name: "", date: "", reason: "", status: "На рассмотрении", hasPhoto: false })
+                            setAttachedFile(null)
                             setShowAddDoc(false)
                           }}
                           className="flex-1 py-2 rounded-xl text-[12px] font-semibold text-white"
                           style={{ background: "#800020" }}
                         >Сохранить</button>
                         <button
-                          onClick={() => setShowAddDoc(false)}
-                          className="px-4 py-2 rounded-xl text-[12px] font-semibold text-gray-500 bg-gray-100"
-                        >Отмена</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Форма пропуска */}
-                  {showAddPass && (
-                    <div className="mb-4 p-4 rounded-xl space-y-3" style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(128,0,32,0.15)" }}>
-                      <p className="text-[13px] font-bold text-gray-700">Новый пропуск</p>
-                      <select
-                        value={newPass.name}
-                        onChange={e => setNewPass(p => ({ ...p, name: e.target.value }))}
-                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
-                      >
-                        <option value="">— ФИО студента —</option>
-                        {STUDENTS.map(s => <option key={s} value={s.split(" ").slice(0, 2).map((w, i) => i === 0 ? w : w[0] + ".").join(" ")}>{s}</option>)}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Дата пропуска (DD.MM.YYYY)"
-                        value={newPass.date}
-                        onChange={e => setNewPass(p => ({ ...p, date: e.target.value }))}
-                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
-                      />
-                      <select
-                        value={newPass.status}
-                        onChange={e => setNewPass(p => ({ ...p, status: e.target.value }))}
-                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
-                      >
-                        <option>Открыт</option>
-                        <option>Закрыт</option>
-                        <option>Уважительная причина</option>
-                      </select>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            if (!newPass.name || !newPass.date) return
-                            setPasses(prev => [...prev, newPass])
-                            setNewPass({ name: "", date: "", status: "Открыт" })
-                            setShowAddPass(false)
-                          }}
-                          className="flex-1 py-2 rounded-xl text-[12px] font-semibold text-white"
-                          style={{ background: "#800020" }}
-                        >Сохранить</button>
-                        <button
-                          onClick={() => setShowAddPass(false)}
+                          onClick={() => { setShowAddDoc(false); setAttachedFile(null) }}
                           className="px-4 py-2 rounded-xl text-[12px] font-semibold text-gray-500 bg-gray-100"
                         >Отмена</button>
                       </div>
@@ -530,11 +502,12 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                         <p className="text-[12px] text-gray-500 mb-1">Причина: {doc.reason}</p>
                         <p className="text-[11px] text-gray-400 mb-3">Дата: {doc.date}</p>
                         {doc.hasPhoto ? (
-                          <div className="flex items-center gap-2 p-2.5 rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2.5 rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
                             style={{ background: "rgba(128,0,32,0.05)", border: "1px dashed rgba(128,0,32,0.2)" }}>
-                            <Icon name="Image" size={16} className="text-[#800020]" />
-                            <span className="text-[12px] text-[#800020] font-medium">Просмотреть документ</span>
-                          </div>
+                            <Icon name="Paperclip" size={16} className="text-[#800020]" />
+                            <span className="text-[12px] text-[#800020] font-medium truncate">{doc.fileName || "Просмотреть документ"}</span>
+                          </a>
                         ) : (
                           <div className="flex items-center gap-2 p-2.5 rounded-lg"
                             style={{ background: "rgba(0,0,0,0.03)", border: "1px dashed rgba(0,0,0,0.1)" }}>
@@ -545,23 +518,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       </div>
                     ))}
 
-                    {/* Список пропусков */}
-                    {passes.length > 0 && (
-                      <>
-                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide pt-2">Пропуски</p>
-                        {passes.map((p, i) => (
-                          <div key={i} className="p-4 rounded-xl flex items-center justify-between" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
-                            <div>
-                              <p className="text-[13px] font-semibold text-gray-800">{p.name}</p>
-                              <p className="text-[11px] text-gray-400">Дата: {p.date}</p>
-                            </div>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${p.status === "Уважительная причина" ? "bg-green-100 text-green-600" : p.status === "Закрыт" ? "bg-gray-100 text-gray-500" : "bg-amber-50 text-amber-600"}`}>
-                              {p.status}
-                            </span>
-                          </div>
-                        ))}
-                      </>
-                    )}
+
                   </div>
                 </div>
               )}
