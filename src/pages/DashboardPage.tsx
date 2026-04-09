@@ -41,7 +41,8 @@ const STUDENTS = [
   "Ширшова Кира Павловна",
 ]
 
-type AttendanceState = Record<string, Record<number, Record<number, boolean | null>>>
+type AttendanceVal = true | false | "excused" | null
+type AttendanceState = Record<string, Record<number, Record<number, AttendanceVal>>>
 type DisciplinesState = Record<number, [string, string, string]>
 
 const initAttendance = (): AttendanceState => {
@@ -49,7 +50,7 @@ const initAttendance = (): AttendanceState => {
   STUDENTS.forEach((s) => {
     state[s] = {}
     DAYS.forEach((_, di) => {
-      state[s][di] = { 0: null, 1: null, 2: null }
+      state[s][di] = { 0: null, 1: null, 2: null } as Record<number, AttendanceVal>
     })
   })
   return state
@@ -63,12 +64,13 @@ const initDisciplines = (): DisciplinesState => {
   return state
 }
 
-const DEBTS_DATA = [
+const INIT_DEBTS = [
   { name: "Гандалоев М.Р.", subject: "БЖД", type: "Контрольная", deadline: "18.02.2026", status: "Не сдано" },
   { name: "Костоев А.Р.", subject: "КП", type: "Проект", deadline: "04.03.2026", status: "Не сдано" },
   { name: "Магомедов И.А.", subject: "ИГПР", type: "Реферат", deadline: "21.03.2026", status: "Просрочено" },
   { name: "Силантьев А.Д.", subject: "КРПР", type: "Реферат", deadline: "07.04.2026", status: "Сдано" },
 ]
+type DebtEntry = { name: string; subject: string; type: string; deadline: string; status: string }
 
 const INIT_DOCUMENTS = [
   { name: "Бадминова В.М.", date: "10.01.2025", reason: "Болезнь", status: "Принята", hasPhoto: true },
@@ -113,9 +115,11 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const [attendance, setAttendance] = useState<AttendanceState>(initAttendance)
   const [disciplines, setDisciplines] = useState<DisciplinesState>(initDisciplines)
   const [documents, setDocuments] = useState<DocEntry[]>(INIT_DOCUMENTS)
+  const [debts, setDebts] = useState<DebtEntry[]>(INIT_DEBTS)
   const [showAddDoc, setShowAddDoc] = useState(false)
   const [newDoc, setNewDoc] = useState<DocEntry>({ name: "", date: "", reason: "", status: "На рассмотрении", hasPhoto: false })
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string } | null>(null)
+  const [showSemesterStats, setShowSemesterStats] = useState(false)
 
   const handleSendMessage = () => {
     if (messageContact && messageText.trim()) {
@@ -128,7 +132,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const toggleAttendance = (student: string, lessonIdx: number) => {
     setAttendance((prev) => {
       const cur = prev[student][selectedDay][lessonIdx]
-      const next = cur === null ? true : cur === true ? false : null
+      const next: AttendanceVal = cur === null ? true : cur === true ? false : cur === false ? "excused" : null
       return {
         ...prev,
         [student]: {
@@ -147,9 +151,10 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     })
   }
 
-  const getAttendanceSymbol = (val: boolean | null) => {
+  const getAttendanceSymbol = (val: AttendanceVal) => {
     if (val === true) return { sym: "✓", cls: "text-green-600 bg-green-50" }
     if (val === false) return { sym: "Н", cls: "text-red-500 bg-red-50" }
+    if (val === "excused") return { sym: "У", cls: "text-blue-500 bg-blue-50" }
     return { sym: "·", cls: "text-gray-300 bg-gray-50" }
   }
 
@@ -165,6 +170,28 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
       })
     })
     return total > 0 ? `${present}/${total}` : "—"
+  }
+
+  const countAbsences = (student: string) => {
+    let unexcused = 0, excused = 0
+    DAYS.forEach((_, di) => {
+      [0, 1, 2].forEach((li) => {
+        const disc = disciplines[di][li]
+        if (disc.trim()) {
+          const v = attendance[student][di][li]
+          if (v === false) unexcused++
+          if (v === "excused") excused++
+        }
+      })
+    })
+    return { unexcused, excused }
+  }
+
+  const getAbsenceColor = (unexcused: number) => {
+    if (unexcused === 0) return "text-gray-400"
+    if (unexcused >= 36) return "text-red-600 font-bold"
+    if (unexcused >= 20) return "text-orange-500 font-bold"
+    return "text-green-600 font-semibold"
   }
 
   return (
@@ -266,7 +293,17 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       <Icon name="CalendarCheck" size={20} className="text-[#800020]" />
                       <h2 className="text-base font-bold text-gray-800">Посещаемость — {user.group}</h2>
                     </div>
-                    <button onClick={() => setOpenFolder(null)}><Icon name="X" size={20} className="text-gray-400" /></button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowSemesterStats(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-colors"
+                        style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}
+                      >
+                        <Icon name="BarChart2" size={13} />
+                        Пропуски за семестр
+                      </button>
+                      <button onClick={() => setOpenFolder(null)}><Icon name="X" size={20} className="text-gray-400" /></button>
+                    </div>
                   </div>
 
                   {/* Day selector */}
@@ -300,7 +337,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
 
                   {/* Table */}
                   <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid rgba(128,0,32,0.08)" }}>
-                    <table className="w-full text-sm min-w-[480px]">
+                    <table className="w-full text-sm min-w-[580px]">
                       <thead>
                         <tr style={{ background: "rgba(128,0,32,0.05)" }}>
                           <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-600 w-8">#</th>
@@ -313,41 +350,52 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                               )}
                             </th>
                           ))}
-                          <th className="text-center px-3 py-2.5 text-[11px] font-semibold text-[#800020]">Итого</th>
+                          <th className="text-center px-2 py-2.5 text-[11px] font-semibold text-[#800020]">Итого</th>
+                          <th className="text-center px-2 py-2.5 text-[11px] font-semibold text-red-500">Н</th>
+                          <th className="text-center px-2 py-2.5 text-[11px] font-semibold text-blue-500">У</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {STUDENTS.map((student, si) => (
-                          <tr key={student} className="border-t border-gray-100 hover:bg-red-50/30 transition-colors">
-                            <td className="px-3 py-2 text-[11px] text-gray-400">{si + 1}</td>
-                            <td className="px-3 py-2 text-[12px] font-medium text-gray-800 whitespace-nowrap">
-                              {student}
-                              {student === "Сафронова Айша Сайидовна" && (
-                                <span className="ml-1.5 text-[10px] text-[#800020] font-semibold">(ст-та)</span>
-                              )}
-                            </td>
-                            {[0, 1, 2].map((li) => {
-                              const val = attendance[student][selectedDay][li]
-                              const { sym, cls } = getAttendanceSymbol(val)
-                              return (
-                                <td key={li} className="text-center px-3 py-2">
-                                  <button onClick={() => toggleAttendance(student, li)}
-                                    className={`w-8 h-8 rounded-lg text-[13px] font-bold transition-all ${cls}`}
-                                    title="Нажмите: ✓ — присутствует, Н — отсутствует, · — не задано">
-                                    {sym}
-                                  </button>
-                                </td>
-                              )
-                            })}
-                            <td className="text-center px-3 py-2 text-[12px] font-semibold text-[#800020]">
-                              {countPresent(student)}
-                            </td>
-                          </tr>
-                        ))}
+                        {STUDENTS.map((student, si) => {
+                          const { unexcused, excused } = countAbsences(student)
+                          return (
+                            <tr key={student} className="border-t border-gray-100 hover:bg-red-50/30 transition-colors">
+                              <td className="px-3 py-2 text-[11px] text-gray-400">{si + 1}</td>
+                              <td className="px-3 py-2 text-[12px] font-medium text-gray-800 whitespace-nowrap">
+                                {student}
+                                {student === "Сафронова Айша Сайидовна" && (
+                                  <span className="ml-1.5 text-[10px] text-[#800020] font-semibold">(ст-та)</span>
+                                )}
+                              </td>
+                              {[0, 1, 2].map((li) => {
+                                const val = attendance[student][selectedDay][li]
+                                const { sym, cls } = getAttendanceSymbol(val)
+                                return (
+                                  <td key={li} className="text-center px-3 py-2">
+                                    <button onClick={() => toggleAttendance(student, li)}
+                                      className={`w-8 h-8 rounded-lg text-[13px] font-bold transition-all ${cls}`}
+                                      title="✓ присутствует → Н неуваж. → У уваж. → · не задано">
+                                      {sym}
+                                    </button>
+                                  </td>
+                                )
+                              })}
+                              <td className="text-center px-2 py-2 text-[12px] font-semibold text-[#800020]">
+                                {countPresent(student)}
+                              </td>
+                              <td className="text-center px-2 py-2 text-[12px] text-red-500 font-semibold">
+                                {unexcused > 0 ? unexcused : "—"}
+                              </td>
+                              <td className="text-center px-2 py-2 text-[12px] text-blue-500 font-semibold">
+                                {excused > 0 ? excused : "—"}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-3">Нажмите на ячейку: ✓ — присутствует · Н — отсутствует · · — не задано</p>
+                  <p className="text-[10px] text-gray-400 mt-3">Нажмите на ячейку: ✓ присутствует · Н неуважительная · У уважительная · · не задано</p>
                 </div>
               )}
 
@@ -362,7 +410,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     <button onClick={() => setOpenFolder(null)}><Icon name="X" size={20} className="text-gray-400" /></button>
                   </div>
                   <div className="space-y-3">
-                    {DEBTS_DATA.map((row, i) => (
+                    {debts.map((row, i) => (
                       <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ background: row.status === "Просрочено" ? "rgba(220,38,38,0.1)" : row.status === "Сдано" ? "rgba(22,163,74,0.1)" : "rgba(128,0,32,0.08)" }}>
@@ -373,9 +421,15 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                           <p className="text-[12px] text-gray-500">{row.subject} — {row.type}</p>
                           <p className="text-[11px] text-gray-400">Срок: {row.deadline}</p>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 ${row.status === "Просрочено" ? "bg-red-100 text-red-600" : row.status === "Сдано" ? "bg-green-100 text-green-600" : "bg-amber-50 text-amber-600"}`}>
-                          {row.status}
-                        </span>
+                        <select
+                          value={row.status}
+                          onChange={e => setDebts(prev => prev.map((d, j) => j === i ? { ...d, status: e.target.value } : d))}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 border-0 outline-none cursor-pointer ${row.status === "Просрочено" ? "bg-red-100 text-red-600" : row.status === "Сдано" ? "bg-green-100 text-green-600" : "bg-amber-50 text-amber-600"}`}
+                        >
+                          <option value="Не сдано">Не сдано</option>
+                          <option value="Сдано">Сдано</option>
+                          <option value="Просрочено">Просрочено</option>
+                        </select>
                       </div>
                     ))}
                   </div>
@@ -495,9 +549,15 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       <div key={i} className="p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[13px] font-semibold text-gray-800">{doc.name}</p>
-                          <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${doc.status === "Принята" ? "bg-green-100 text-green-600" : doc.status === "Отклонена" ? "bg-red-100 text-red-600" : "bg-amber-50 text-amber-600"}`}>
-                            {doc.status}
-                          </span>
+                          <select
+                            value={doc.status}
+                            onChange={e => setDocuments(prev => prev.map((d, j) => j === i ? { ...d, status: e.target.value } : d))}
+                            className={`text-[10px] font-bold px-2 py-1 rounded-lg border-0 outline-none cursor-pointer ${doc.status === "Принята" ? "bg-green-100 text-green-600" : doc.status === "Отклонена" ? "bg-red-100 text-red-600" : "bg-amber-50 text-amber-600"}`}
+                          >
+                            <option value="На рассмотрении">На рассмотрении</option>
+                            <option value="Принята">Принята</option>
+                            <option value="Отклонена">Отклонена</option>
+                          </select>
                         </div>
                         <p className="text-[12px] text-gray-500 mb-1">Причина: {doc.reason}</p>
                         <p className="text-[11px] text-gray-400 mb-3">Дата: {doc.date}</p>
@@ -642,6 +702,63 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                 </div>
               )}
 
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== SEMESTER STATS MODAL ===== */}
+      <AnimatePresence>
+        {showSemesterStats && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}
+            onClick={() => setShowSemesterStats(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-[24px] p-6"
+              style={{ background: "rgba(255,255,255,0.96)", boxShadow: "0 8px 40px rgba(128,0,32,0.18)" }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <Icon name="BarChart2" size={20} className="text-[#800020]" />
+                  <h2 className="text-base font-bold text-gray-800">Пропуски за семестр</h2>
+                </div>
+                <button onClick={() => setShowSemesterStats(false)}><Icon name="X" size={20} className="text-gray-400" /></button>
+              </div>
+              <div className="flex gap-3 mb-4 text-[11px] font-semibold">
+                <span className="flex items-center gap-1 text-red-500"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Неуваж.</span>
+                <span className="flex items-center gap-1 text-blue-500"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Уваж.</span>
+                <span className="flex items-center gap-1 text-orange-500">от 20 — оранжевый</span>
+                <span className="flex items-center gap-1 text-red-600">от 36 — красный</span>
+              </div>
+              <div className="space-y-2">
+                {STUDENTS.map((student, si) => {
+                  const { unexcused, excused } = countAbsences(student)
+                  const numColor = getAbsenceColor(unexcused)
+                  return (
+                    <div key={student} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                      style={{ background: "rgba(128,0,32,0.04)", border: "1px solid rgba(128,0,32,0.07)" }}>
+                      <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0">{si + 1}</span>
+                      <span className="flex-1 text-[12px] font-medium text-gray-800 truncate">{student}</span>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="text-center">
+                          <div className={`text-[14px] ${numColor}`}>{unexcused}</div>
+                          <div className="text-[9px] text-gray-400">неуваж</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-[14px] text-blue-500 font-semibold">{excused}</div>
+                          <div className="text-[9px] text-gray-400">уваж</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </motion.div>
           </motion.div>
         )}
