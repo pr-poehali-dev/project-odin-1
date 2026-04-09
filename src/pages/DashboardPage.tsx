@@ -70,11 +70,14 @@ const DEBTS_DATA = [
   { name: "Силантьев А.Д.", subject: "КРПР", type: "Реферат", deadline: "07.04.2026", status: "Сдано" },
 ]
 
-const DOCUMENTS = [
+const INIT_DOCUMENTS = [
   { name: "Бадминова В.М.", date: "10.01.2025", reason: "Болезнь", status: "Принята", hasPhoto: true },
   { name: "Костоев А.Р.", date: "05.12.2024", reason: "Семейные обстоятельства", status: "На рассмотрении", hasPhoto: true },
   { name: "Магомедов И.А.", date: "15.11.2024", reason: "Медицинские процедуры", status: "Принята", hasPhoto: false },
 ]
+
+type DocEntry = { name: string; date: string; reason: string; status: string; hasPhoto: boolean }
+type PassEntry = { name: string; date: string; status: string }
 
 const CONTACTS = [
   { role: "Декан", name: "Гамбарова Анастасия Алексеевна", icon: "GraduationCap" },
@@ -110,6 +113,12 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
   const [selectedDay, setSelectedDay] = useState(0)
   const [attendance, setAttendance] = useState<AttendanceState>(initAttendance)
   const [disciplines, setDisciplines] = useState<DisciplinesState>(initDisciplines)
+  const [documents, setDocuments] = useState<DocEntry[]>(INIT_DOCUMENTS)
+  const [passes, setPasses] = useState<PassEntry[]>([])
+  const [showAddDoc, setShowAddDoc] = useState(false)
+  const [showAddPass, setShowAddPass] = useState(false)
+  const [newDoc, setNewDoc] = useState<DocEntry>({ name: "", date: "", reason: "", status: "На рассмотрении", hasPhoto: false })
+  const [newPass, setNewPass] = useState<PassEntry>({ name: "", date: "", status: "Открыт" })
 
   const handleSendMessage = () => {
     if (messageContact && messageText.trim()) {
@@ -386,12 +395,135 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                     </div>
                     <button onClick={() => setOpenFolder(null)}><Icon name="X" size={20} className="text-gray-400" /></button>
                   </div>
+
+                  {/* Кнопки добавления */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => { setShowAddDoc(true); setShowAddPass(false) }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-colors"
+                      style={{ background: "#800020" }}
+                    >
+                      <Icon name="FilePlus" size={14} />
+                      Добавить объяснительную
+                    </button>
+                    <button
+                      onClick={() => { setShowAddPass(true); setShowAddDoc(false) }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-colors"
+                      style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}
+                    >
+                      <Icon name="Ticket" size={14} />
+                      Создать пропуск
+                    </button>
+                  </div>
+
+                  {/* Форма объяснительной */}
+                  {showAddDoc && (
+                    <div className="mb-4 p-4 rounded-xl space-y-3" style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(128,0,32,0.15)" }}>
+                      <p className="text-[13px] font-bold text-gray-700">Новая объяснительная</p>
+                      <select
+                        value={newDoc.name}
+                        onChange={e => setNewDoc(d => ({ ...d, name: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      >
+                        <option value="">— ФИО студента —</option>
+                        {STUDENTS.map(s => <option key={s} value={s.split(" ").slice(0, 2).map((w, i) => i === 0 ? w : w[0] + ".").join(" ")}>{s}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Дата (DD.MM.YYYY)"
+                        value={newDoc.date}
+                        onChange={e => setNewDoc(d => ({ ...d, date: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Причина"
+                        value={newDoc.reason}
+                        onChange={e => setNewDoc(d => ({ ...d, reason: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      />
+                      <select
+                        value={newDoc.status}
+                        onChange={e => setNewDoc(d => ({ ...d, status: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      >
+                        <option>На рассмотрении</option>
+                        <option>Принята</option>
+                        <option>Отклонена</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (!newDoc.name || !newDoc.date) return
+                            setDocuments(prev => [...prev, newDoc])
+                            setNewDoc({ name: "", date: "", reason: "", status: "На рассмотрении", hasPhoto: false })
+                            setShowAddDoc(false)
+                          }}
+                          className="flex-1 py-2 rounded-xl text-[12px] font-semibold text-white"
+                          style={{ background: "#800020" }}
+                        >Сохранить</button>
+                        <button
+                          onClick={() => setShowAddDoc(false)}
+                          className="px-4 py-2 rounded-xl text-[12px] font-semibold text-gray-500 bg-gray-100"
+                        >Отмена</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Форма пропуска */}
+                  {showAddPass && (
+                    <div className="mb-4 p-4 rounded-xl space-y-3" style={{ background: "rgba(255,255,255,0.8)", border: "1px solid rgba(128,0,32,0.15)" }}>
+                      <p className="text-[13px] font-bold text-gray-700">Новый пропуск</p>
+                      <select
+                        value={newPass.name}
+                        onChange={e => setNewPass(p => ({ ...p, name: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      >
+                        <option value="">— ФИО студента —</option>
+                        {STUDENTS.map(s => <option key={s} value={s.split(" ").slice(0, 2).map((w, i) => i === 0 ? w : w[0] + ".").join(" ")}>{s}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Дата пропуска (DD.MM.YYYY)"
+                        value={newPass.date}
+                        onChange={e => setNewPass(p => ({ ...p, date: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      />
+                      <select
+                        value={newPass.status}
+                        onChange={e => setNewPass(p => ({ ...p, status: e.target.value }))}
+                        className="w-full text-[12px] px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 outline-none"
+                      >
+                        <option>Открыт</option>
+                        <option>Закрыт</option>
+                        <option>Уважительная причина</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (!newPass.name || !newPass.date) return
+                            setPasses(prev => [...prev, newPass])
+                            setNewPass({ name: "", date: "", status: "Открыт" })
+                            setShowAddPass(false)
+                          }}
+                          className="flex-1 py-2 rounded-xl text-[12px] font-semibold text-white"
+                          style={{ background: "#800020" }}
+                        >Сохранить</button>
+                        <button
+                          onClick={() => setShowAddPass(false)}
+                          className="px-4 py-2 rounded-xl text-[12px] font-semibold text-gray-500 bg-gray-100"
+                        >Отмена</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Список объяснительных */}
                   <div className="space-y-3">
-                    {DOCUMENTS.map((doc, i) => (
+                    {documents.map((doc, i) => (
                       <div key={i} className="p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[13px] font-semibold text-gray-800">{doc.name}</p>
-                          <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${doc.status === "Принята" ? "bg-green-100 text-green-600" : "bg-amber-50 text-amber-600"}`}>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${doc.status === "Принята" ? "bg-green-100 text-green-600" : doc.status === "Отклонена" ? "bg-red-100 text-red-600" : "bg-amber-50 text-amber-600"}`}>
                             {doc.status}
                           </span>
                         </div>
@@ -412,6 +544,24 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                         )}
                       </div>
                     ))}
+
+                    {/* Список пропусков */}
+                    {passes.length > 0 && (
+                      <>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide pt-2">Пропуски</p>
+                        {passes.map((p, i) => (
+                          <div key={i} className="p-4 rounded-xl flex items-center justify-between" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
+                            <div>
+                              <p className="text-[13px] font-semibold text-gray-800">{p.name}</p>
+                              <p className="text-[11px] text-gray-400">Дата: {p.date}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-lg ${p.status === "Уважительная причина" ? "bg-green-100 text-green-600" : p.status === "Закрыт" ? "bg-gray-100 text-gray-500" : "bg-amber-50 text-amber-600"}`}>
+                              {p.status}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               )}
