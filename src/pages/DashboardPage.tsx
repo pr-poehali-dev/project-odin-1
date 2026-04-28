@@ -371,7 +371,7 @@ export function DashboardPage() {
                       <Icon name="CalendarCheck" size={20} className="text-[#800020]" />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="text-base font-bold text-gray-800">Посещаемость — ИСП-21</h2>
+                          <h2 className="text-base font-bold text-gray-800">Посещаемость — ИПСПД25-10</h2>
                         </div>
                       </div>
                     </div>
