@@ -293,7 +293,7 @@ export function DashboardPage() {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-800">Портал старосты</h1>
-            <p className="text-xs text-gray-500">Группа ИСП-21</p>
+            <p className="text-xs text-gray-500">Группа ИПСПД25-10</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
