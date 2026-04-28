@@ -795,8 +795,8 @@ export function DashboardPage() {
                       style={{ background: "linear-gradient(135deg, #800020, #c0392b)", boxShadow: "0 4px 20px rgba(128,0,32,0.3)" }}>
                       <Icon name="User" size={32} className="text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Портал старосты</h3>
-                    <p className="text-sm text-gray-500 mt-1">Группа ИСП-21</p>
+                    <h3 className="text-xl font-bold text-gray-800">Сафронова Айша Сайидовна</h3>
+                    <p className="text-sm text-gray-500 mt-1">Группа ИПСПД25-10</p>
                     <span className="mt-3 text-[11px] font-semibold px-3 py-1.5 rounded-full"
                       style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}>Староста</span>
                     <div className="w-full mt-6 p-4 rounded-xl space-y-2" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
@@ -806,7 +806,7 @@ export function DashboardPage() {
                       </div>
                       <div className="flex justify-between text-[13px]">
                         <span className="text-gray-500">Группа</span>
-                        <span className="font-semibold text-gray-800">ИСП-21</span>
+                        <span className="font-semibold text-gray-800">ИПСПД25-10</span>
                       </div>
                     </div>
 
