@@ -1,15 +1,9 @@
 import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import type { User } from "@/App"
 import Icon from "@/components/ui/icon"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
-
-interface DashboardPageProps {
-  user: User
-  onLogout: () => void
-}
 
 type FolderKey = "attendance" | "debts" | "documents" | "survey" | null
 
@@ -112,7 +106,7 @@ const glassCard = {
   border: "1px solid rgba(255,255,255,0.6)",
 }
 
-export function DashboardPage({ user, onLogout }: DashboardPageProps) {
+export function DashboardPage() {
   const [openFolder, setOpenFolder] = useState<FolderKey>(null)
   const [showMessages, setShowMessages] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -263,7 +257,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
     doc.text("Propuski za semestr", 14, 16)
     doc.setFontSize(10)
     doc.setFont("helvetica", "normal")
-    doc.text(`Gruppa: ${user.group}`, 14, 24)
+    doc.text(`Gruppa: ИСП-21`, 14, 24)
     autoTable(doc, {
       startY: 30,
       head: [["#", "Student", "Neuvazh.", "Uvazh.", "Vsego"]],
@@ -299,7 +293,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-800">Портал старосты</h1>
-            <p className="text-xs text-gray-500">Группа {user.group}</p>
+            <p className="text-xs text-gray-500">Группа ИСП-21</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -377,7 +371,7 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       <Icon name="CalendarCheck" size={20} className="text-[#800020]" />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className="text-base font-bold text-gray-800">Посещаемость — {user.group}</h2>
+                          <h2 className="text-base font-bold text-gray-800">Посещаемость — ИСП-21</h2>
                         </div>
                       </div>
                     </div>
@@ -801,8 +795,8 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       style={{ background: "linear-gradient(135deg, #800020, #c0392b)", boxShadow: "0 4px 20px rgba(128,0,32,0.3)" }}>
                       <Icon name="User" size={32} className="text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">{user.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">Группа {user.group}</p>
+                    <h3 className="text-xl font-bold text-gray-800">Портал старосты</h3>
+                    <p className="text-sm text-gray-500 mt-1">Группа ИСП-21</p>
                     <span className="mt-3 text-[11px] font-semibold px-3 py-1.5 rounded-full"
                       style={{ background: "rgba(128,0,32,0.08)", color: "#800020" }}>Староста</span>
                     <div className="w-full mt-6 p-4 rounded-xl space-y-2" style={{ background: "rgba(255,255,255,0.6)", border: "1px solid rgba(128,0,32,0.08)" }}>
@@ -812,15 +806,10 @@ export function DashboardPage({ user, onLogout }: DashboardPageProps) {
                       </div>
                       <div className="flex justify-between text-[13px]">
                         <span className="text-gray-500">Группа</span>
-                        <span className="font-semibold text-gray-800">{user.group}</span>
+                        <span className="font-semibold text-gray-800">ИСП-21</span>
                       </div>
                     </div>
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      onClick={onLogout}
-                      className="mt-5 w-full rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2"
-                      style={{ background: "rgba(128,0,32,0.06)", color: "#800020", border: "1px solid rgba(128,0,32,0.15)" }}>
-                      <Icon name="LogOut" size={16} /> Выйти
-                    </motion.button>
+
                   </div>
                 </div>
               )}
